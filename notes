@@ -1,0 +1,83 @@
+- build files
+- taxonomy of default propagation schemes (local-global, nested, inheritance-directed)
+- embedded languages
+ - macros (manipulate the configuration itself) – in conflict with explictness, hygenic versus non-hygenic
+ - DSL/assemblies (run in the binary)[weird machines] – irreducible, debugging?, performance, correctness
+
+-runtime versus compile time checks: if the config is checked upon binary start, and that's in a Docker, you won't know the problem until much later. See also pipelines. Like a compiler, you want the checks to be as early as possible. Regular binaries don't even undergo run-time assembly checking.
+
+-why regular PLs are bad at this
+
+- The bridge problem:
+	-There's also a pattern I've noticed. I'm not sure what to call it, but let's go with the common serialisation problem. Example: fstab had a bunch of different file systems that all have different pieces of information they need. They have some common elements (mount point, “device”, and fsck order) and everything else gets put into that common key=value list. Imagine it this way, there are a bunch of different MountPoint objects, but we don't have a good way to specify their constructors, so, we mash everything to a common format to force it through the user space-kernel space bridge. For most file systems, everything is a lie: network file systems do not have devices and are not fsck'd, loopback file systems are not devices, but are fscked, but probably not during boot, FUSE is just...blech.
+	-The problem is not the bridge. The problem is making the bridge format visible to me as the user. Each file system should have a kernel part and a user-space part that know how to talk to each other over whatever the wretched interchange protocol is.  This is the command line args problem.
+
+http://www.langsec.org/occupy/
+ boundaries of confidence - the assumptions of i/o; violation makes things not composable
+--
+
+Binaries to investigate thoroughly:
+= Make
+- macro language $() and  ifeq, ifneq, ifdef, ifndef
+- rules have wildcarding independent of macros, but affect macros. Therefore, rule wildcarding sandwiched between macro processing
+- egar and lazy evaluation of macros depending on command used
+- default rules and default variables are inherited from binary
+- multiple makefiles of different names in the same directory can implicitly inherit from each other
+
+= Samba
+
+= Asterisk
+- explicity inheritance format `[x](!)` for template, or `[x](y)` for instance (for entire stanzas). Some values are automatically inherited from appropriate stanzas (e.g., `context` from `general` in chan_sip)
+- dialplan is one big, ugly DSAL (now replaced wih lua, does not use Lua methods, instead uses custom dispatch mechanism on top of Lua to allow interaction with old extensions.conf)
+
+= Apache http://httpd.apache.org/docs/2.4/
+-mod_rewrite...just mod-rewrite and the fact that it's part of a URL mapping ecosystem (mod_actions, mod_dir,mod_imagemap, mod_negotiation + mod_perl and friends)
+-several DSALs: mod_envsetif (itself and SetEnvIfExpr, RewriteCond) – common expression system
+-depending on the directives, directives can be configured per query
+-nested inheritance based on the different configuration directives
+
+= BIND https://www.isc.org/downloads/bind/doc/bind-9-10/
+- sortlist are chains of addresses that are weird machines
+- has built in empty zones which can be disabled
+- repsonse policy rewriting DSL
+- dailup option is overridden at top level, but specifiable in leaves; notify is the reverse, the top-level is the default and the zones override
+- zones files: $TTL (sets global default, allows local override), @ is macro expansion that happens by default, $GENERATE macro
+
+= CUPS http://www.cups.org/doc-1.1/sam.html
+- default inheritance is done by nesting (Printer in a Class)
+-URIs are a bridge problem (solved?)
+- classes are exactly templates (i.e., they have all the properties a printer does except UID address)
+- most default are overriden, but some authentication rules are merged; there's no reset.
+- mimetype matching service is a DSL (Turing incomplete, no jumps)
+- spooky bits: ImplicitClasses is default on unless Browsing is explicitly turned off – unclear what happens forced with Browsing off
+- no macro language
+
+= NGINX http://nginx.org/en/docs/
+- rewrite is DSAL. `last` is an interprocedural jump
+
+= Docker https://docs.docker.com/userguide/
+- more of a script?
+
+= Ainsible
+= iptables
+= ANT?
+
+Talk:
+- When did configs get complicated?
+- Metal versus cloud; applications have spread out beyond the binary (e.g., into the DB); testing is no longer possible by starting the app
+- the complexity of a config is independent of the format
+- the fight between terse and explicit
+- survey of the complexities
+ - the default propagation schemes
+ - the macro languages and the DSALs
+- there needs to be composable integration
+- divide and conquer: separate the macro language from the binary; make the DSAL more bytecode-like; unifying config formats not that helpful (can inhibit composition if done poorly)
+- why DSALs are good
+ - easier to implement (easy to parse, easy to build a simple VM)
+ - easier to optimise (convert to LLVM/JVM/CLR)
+ - easier to validate (trivial stack-based verifiers)
+ - easier to simulate
+ - specs fall out more naturally
+ - when you crash, just dump the machine state → easier to debug
+- regular PLs are bad this; imperative ones imply ordering we don't really know, functional ones require us to stamp-couple all our knowledge
+ - need a language that is declarative, but able to manage the information flow automatically

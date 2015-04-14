@@ -1,0 +1,133 @@
+\documentclass[letterpaper,twocolumn,10pt]{article}
+\usepackage{usenix,endnotes,verbatim}
+\hyphenation{NGINX}
+\begin{document}
+
+\date{}
+\title{\Large \bf Configuration Pinocchio: The Lies Plainly Seen and the Quest to be a Real Discipline}
+
+\author{
+{\rm Andre P.~Masella}\\
+Ontario Institute for Cancer Research
+} % end author
+
+\maketitle
+
+% Use the following at camera-ready time to suppress page numbers.
+% Comment it out when you first submit the paper for review.
+\thispagestyle{empty}
+
+
+\subsection*{Abstract}
+Creating configuration files has always been pushed into the domain of ``not programming'', but configuration files have a way of growing more complex. There is a struggle between keeping a configuration terse, by having the system infer information automatically, and explicit without having duplication. Either the configuration file develops embedded domain-specific programming languages or a text-based macro language is put in front. I will identify and categorise patterns in the evolution of these programming languages and describe what kinds of patterns are needed to avoid them.
+
+\section{Introduction}
+There has been a shift in the kinds of configurations written. Previously, a server would be purchased, configured to perform some role, and largely left alone for its servicable life. In compute clusters, the pattern is very different. Virtual machines allow repeated creation and deployment of machine configurations. Compounding this problem, applications have sprawled into many tiers of services. It was previously common for a single service to be a single binary; now, it is likely to be several binaries, running on different virtual machines, and the logic of the program is also likely to be spread out into the database and peripheral services. This poses a problem for testing as it isn't practical for a developer to start the application on their desktop since it would need other services and providing development versions of other services may be impractical as the application logic advances into those components.
+
+Due to these factors, configuration of an application has become much more complex. At the very least, configuration of an application extends beyond the application itself and must encompass all the peripheral services and the cluster environment--to say nothing of the build, test, and deployment logic.
+
+To build better configuration management software, one must first understand the problem being solved. Configuration seems simple enough: simply provide some values to an application on start-up. Unfortunately, the reality is more nuanced. Firstly, the number of methods for informing an application of its configuration is larger than expected. These include command line arguments, configuration files, environment variables, and values in a database. Secondly, those values can contain simple data types, paths, composite data types, macro languages, and even Turing complete programs that run inside the binary as part of its serving logic. A large number of these values also interact with each other in non-trivial ways; a change in one parameter can affect the interpretation of another. Finally, the output of the configuration is usually opaque to the programmer since the true output of the program is hidden inside the server. That is, there is part of the server that takes the configuration and interprets it, but there is generally no way to view this output. That interpretation depends on three conflated sources of information: the execution of the configuration (\emph{e.g.}, the macro expansion), the defaults provided by the binary, and the invisible interface of the binary (\emph{i.e.}, the parameters used by the server itself). It is concerning that the defaults provided by the server are not necessarily static themselves; they can be determined by the build process.
+
+Language security researches have described an exploitation path where any input data that can direct the flow of a program has the potential to \emph{be} a program that exploits its host program. In this case, the host program is abstracted as a very unusual virtual machine, called a \emph{weird machine}. Configuration is intimately tied to this concept as the server is a weird machine for the configuration and the configuration and the server can be a weird machine for the queries.
+
+\section{Survey of Configurations}
+In order to draw patterns, I analysed the configurations of several common servers. The goal is to look for patterns of three types: how defaults are propagated, how transformations are done on the configuration itself (\emph{i.e.}, macro languages), and the kinds of programming languages that are embedded in the configuration to be used during serving (as distinct from macro languages which are only processed at configuration time). One of the major concerns with these embedded programming languages~(EPL) is that they are underspecified; the semantics of their behaviour at not laid out as cleanly as would be expected in a normal programming language. They also may have incomplete separation from the macro languages in the configuration itself.
+
+\subsection{Formats}
+One of the common myths is that the complexity of the configuration is related to the structure of the configuration format. That is, there is a tacit assumption that INI configurations are semantically simpler than JSON ones; which is demonstrably false. Although the servers studied use their own formats, they are remarkably similar.
+
+Most of the servers use hierarchical key-value stores; that is, something like an INI file, but the sections have implicitly nesting. In fact, the Windows registry is a hierarchical key-value store and can be serialised to INI. Samba's configuration format is exactly INI. Asterisk stores data in a modified INI file; it has an extra layer of hierarchy by storing many separate files. CUPS and Apache HTTPd look different from INI files, but this is only superficial. In both formats directives are effectively keys and the sections are nested into a hierarchy. Again, BIND and NGINX looks very different from INI files, but describe semantically similar content. All of these servers have an additional property, the order of directives matters. All the servers have access control lists~(ACL) that can be specified by a collection of ``allow'' and ``deny'' directives, for which the order of the directives matters. Most of the other directives are order independent.
+
+Make has the most different format. I wish to justify the inclusion of Make as a configuration format at all. Build configurations of all kinds tend to straddle the divide between configuration format and script. For the purposes of this discussion, a script has control over the execution flow; in traditional programming languages, the author of the program has control over the order in which pieces of the program execute--this is true even in functional programming where the language itself has more control of the real behaviour of the programme. In a configuration, it is not the case. Make provides an example of this: it is not possible to create a circular dependency in Make as the Make interpreter can detect and block it. A Makefile is really a declaration of a desired scheduling behaviour of rule bodies that the Make interpreter executes. Make does have key-value pairs for variables, but the main focus of a Makefile is the build rules. A rule could be considered a key-value pair, with the body as the value and the sources and targets as the key, but the algorithm by which Make examines the composite keys would make that an inaccurate analogy. The rules are clearly separate configuration entities.
+
+Both Make and Apache HTTPd also have macro rules embedded in the configuration.
+
+Despite the simplicity of these configuration files, Asterisk, Apache HTTPd, BIND, and NGINX all describe Turing-complete EPLs.
+
+\subsection{Default Propagation}
+In any binary, the configuration elements must eventually be rendered to data structures of objects that direct the behaviour of the running program. When describing these elements in the configuration, some information is elided. For example, each CUPS printer has a maximum page limit, \verb!struct cupsd_printer_s.page_limit!, but the matching configuration directive, \verb!PageLimit!, is not required. Therefore, CUPS must impute the value by some method. This is what is meant by default propagation.
+
+Default propagation has two modes: implicit, where the binary has rules that control how defaults are propagated, or explicit, where the programmer specifies how defaults are propagated. The ultimate value for a default must be present in the binary itself. Sometimes, that choice could be determined at compile time. In commodity software, this is a potentially unpleasant surprise for a user, since two identical configurations could produce differing behaviour in two identical versions of the software depending on the options selected by the packager at build time.
+
+Make has a very complex set of defaults, but ones that are extremely visible. Every copy of Make contains a default rule set that is compiled into the binary. A command-line flag can cause make to display this default configuration. GNU Make has some additional quirks: it will check for multiple Makefiles of differing names and capitalisations. If multiple ones are found, it will use a composite of them.
+
+CUPS has the simplest model: the configuration parameters for a printer can be inherited from a printer class or, if not present, assume a default from the binary. Here, the propagation mode is explicit because the user chooses a printer class for a printer. Printer classes cannot be nested, so the propagation is at most two steps.
+
+Asterisk has a more complicated model that is both explicit and implicit. Stanzas maybe inherited by other stanzas and used as default. For instance, to have stanza $x$ inherit from $y$, the first line of the stanza would be \verb![x](y)!. Some stanzas can be declared as templates; to be ignored in the configuration itself and only to serve as a default for other stanzas. To create such a stanza $x$, the first line would be \verb#[x](!)#. Unfortunately, this is not the end of the algorithm. Some keys can also be inherited from the \texttt{general} stanza in a configuration. This is not true of all attributes and is defined by the binary.
+
+Apache has an implicit model based on the structure of the nesting of configuration elements. Not all configurations elements may be nested in one another, but ones which can implicitly take the same values as their containers unless overridden. There is some relationship between the URL-space generated by the configuration. \texttt{Options} directives control the behaviour of specific parts of the URL space and are configured by \texttt{Directory}, \texttt{Location}, and \texttt{Files} stanza in the configuration file and \verb!.htaccess! files in the directories being served. NGINX has a similar, though simplified, model.
+
+BIND has a very complex model. It is worth noting that BIND has two configuration formats: one for the server itself and one for the DNS zones it is serving. In the zone format, which is much simpler, there is only one default, the TTL for a record, which is either specified for a record, inherited from the \texttt{\$TTL} directive, which is required. The server configuration, the default propagation algorithm depends on the directive. For instance, both the \texttt{dialup}  and \texttt{notify} options can be specified in the individual zones or the common \texttt{options} stanza. The \texttt{dialup} directive at in the common stanza overrides the option set in the zone stanzas, while the reverse is true for \texttt{notify}; the common \texttt{notify} value is inherited by the zones unless they override it.
+
+\subsection{Macro Languages and Embedded Programming Languages}
+I define a macro language to be a programming language that is embedded in the configuration and completes execution before a program beings processing user data. This is distinct from an EPL, which executes during processing of user data. This distinction is necessary but not necessarily obvious when inspecting the languages in configuration files. The distinction might be arbitrary, but it provides a useful razor: a macro language could be run to completion on a configuration independently of starting a program; this is not the case for an EPL which can be affected by user input during processing.
+
+The number of macro languages is surprisingly small as many of the things that appear to be macros are, in fact, EPLs. BIND posses a macro system in zone files. There are a number of preprocessing directives, including \texttt{\$TTL} and \texttt{\$ORIGIN}, which are meant to provide defaults for the remainder of the configuration. There is also the \texttt{\$GENERATE} macro that allows construction of large blocks of similar resource records. The names of in resource records are passed through a transformation to ensure they are suffixed with the correct domain and \texttt{@} is replaced with the current domain. All of these transformations can be done statically before BIND starts and produce a new zone file that is semantically equivalent to the original. BINDs configuration files have no macros of any kind.
+
+There are EPLs in Asterisk, Apache, BIND configuration file, Make, and NGINX. CUPS is the sole example that has no macro system or EPL.\endnote{CUPS does have PostScript Printer Descriptions which contain PostScript programs that are sent to printers, but these do not directly alter the flow inside CUPS itself. From CUPS's perspective, they are magic strings it sends to hapless printers.}
+
+NGINX has the simplest EPL used to perform URL rewriting. Each rewriting block can invoke the instruction \texttt{last}, which causes the URL rewriting to start again based on modified URL. This instruction is a jump instruction. Coupled with the conditions provided by other rules, NGINX's rewriting system is now a Turing-complete programming language that is executed from every incoming query. Since an unprivileged user of NGINX now has the opportunity to control the behaviour of NGINX, this qualifies as a weird machine.
+
+BIND also has a query rewriting system know as a response policy. This systems is much more restricted not Turing complete.
+
+Apache's \verb!mod_rewrite! has similar behaviour to NGINX and can also be used in the same way. The regular expression matching can use back-references and the scope of a back-reference of a condition includes the subsequent rewrite rule. Apache's EPL is much more pervasive than this. Firstly, the URL remapping system extends beyond \verb!mod_rewrite! and includes \verb!mod_actions!, \verb!mod_dir!, \verb!mod_imagemap!, and \verb!mod_negotiation!. Secondly, there is also the \verb!mod_envsetif! system which allows examining the query to set binary flags that can active any part of the configuration. Apache's entire configuration is one large weird machine, controllable through every query entering the system.
+
+Make's EPL is the most sophisticated and the most difficult to understand. Make supports eager and lazy evaluation during assignments, referred to as ``immediate'' and ``deferred''. Make's EPL also interacts with rule definitions which are a somewhat separate stage. To correctly analyse a Makefile, it is best to think of it in three stages. In the first stage, all instructions that do not contain one of Make special rule variables can be evaluated; these are \texttt{\$<}, \texttt{\$@}, \texttt{\$\^{}}, \texttt{\$\%}, \texttt{\$?}, \texttt{\$|}, and \texttt{\$+}. Then rule targets and prerequisites can undergo wildcard~(\texttt{\%}) substitution. Finally, the bodies of the rules, which may contain the special rule variables, can be expanded.
+
+Asterisk's EPL is called the dial-plan, found in \texttt{extensions.conf}, and it describes the logic that defines how a telephone call is routed based on the number dialed and source of the call. Since the \texttt{Goto} instruction performs variable expansion, to handle the status of a call attempt, the special variable \texttt{\$\{DIALSTATUS\}} is inserted into the \texttt{Goto} instruction so that the desired labelled block can be reached. For instance, here is a simple pattern to handle four digit extensions:
+
+{\scriptsize
+\begin{verbatim}
+exten => _ZXXX,1,Dial(SIP/${EXTEN}, 60)
+exten => _ZXXX,n,Goto(in-${DIALSTATUS},1)
+exten => _ZXXX,n,Hangup
+
+exten => in-BUSY,1,Voicemail(210@default,u)
+exten => in-BUSY,n,Hangup(17)
+exten => in-CONGESTION,1,Hangup(3)
+exten => in-CHANUNAVAIL,1,Voicemail(210@default,u)
+exten => in-CHANUNAVAIL,n,Hangup(18)
+exten => in-NOANSWER,1,Voicemail(210@default,u)
+exten => in-NOANSWER,n,Hangup(16)
+exten => _in-.,1,Hangup(16)
+\end{verbatim}
+}
+
+This embedded language become sufficiently complicated and some Asterisk developers developed a module that allows replacing it with the general purpose embedded scripting language Lua with some library bindings back into Asterisk.
+
+\section{Common Problems}
+All of the configurations surveyed, and many others, share behaviours that are undesirable to the users. As the maintainer of a system, one's desire are: ease of configuration and adjustment of that configuration, ease of debugging, robustness of the configured software.
+
+\subsection{Terse versus Explicit -- The Macro and Defaults Problem}
+As the person responsible for initial configuration of a program, there is a strong desire for the configuration to be as terse as possible. However, for the person debugging the configuration, it it is desirable for the configuration to be as explicit as possible. Ultimately, these two goals are in direct opposition.
+
+Both macro systems (and EPLs) and default propagation are attempting to solve the same problem: making the configuration more terse. In the final in-memory representation of the configuration objects, many of the configuration values will be duplicated. Recall the example of CUPS's page limit, which is set for each printer known to the server. Default propagation can be seen a kind of macro system: it is a rewriting of the configuration before any user input is handled. In theory, one could separate the default propagation into a separate step. Some binaries, including CUPS and SAMBA provide options to ``pretty print'' their configurations, but what they are doing is providing a version where all the defaults have been propagated. This elaborated configuration file is now as explicit as possible, but much less terse.
+
+BIND's \texttt{\$GENERATE} directive is clearly a way to avoid writing very repetitive resource records into the zone file. This is important from a human perspective: a block of very repetitive records is likely to accumulate unnoticed errors. The terse form is more comprehensible and semantically relevant to a human than the explicit form.
+
+The explicit form has two major advantages: it is stable and it comparable. If a default is changed in the binary, then it will be invisibly changed during upgrade if the configuration is terse. If the configuration is explicit, it has been stated in every required place, so the changed default will be unnoticed. This makes the configuration more robust to upgrades. When the time for change has come, it also allows direct comparison of all the values. It will provide a clear and complete, though tedious, comparison of the changes made.
+
+\subsection{The Common Bridge Problem}
+\subsection{Composition}
+\subsection{Weird Machines}
+
+\section{Recommendations}
+\subsection{The Macro Solution}
+\subsubsection{The Failings of Traditional Programming Languages}
+\subsection{Abstraction of the Common Bridge}
+\subsection{Embedded Virtual Machines}
+
+\subsection{Conclusions}
+
+Well, it's getting boring isn't it.  This is the last subsection
+before we wrap it up.
+
+\section{Acknowledgments}
+Thanks to Kyle W.~Schaffrick for editing and assisting in classifying the patterns. Thanks to Dr.~Gr\'ainne Sheering, and James L.~Schofield for editing.
+
+{\footnotesize \bibliographystyle{acm}
+\bibliography{../common/bibliography}}
+
+\theendnotes
+
+\end{document}
