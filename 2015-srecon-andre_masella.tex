@@ -108,14 +108,52 @@ BIND's \texttt{\$GENERATE} directive is clearly a way to avoid writing very repe
 The explicit form has two major advantages: it is stable and it comparable. If a default is changed in the binary, then it will be invisibly changed during upgrade if the configuration is terse. If the configuration is explicit, it has been stated in every required place, so the changed default will be unnoticed. This makes the configuration more robust to upgrades. When the time for change has come, it also allows direct comparison of all the values. It will provide a clear and complete, though tedious, comparison of the changes made.
 
 \subsection{The Common Bridge Problem}
+Often, a configuration must represent disparate objects in a uniform way. The simplest example comes from the \texttt{fstab}, where each entry for a mount point contains a device, a target path, a file system type, some options, and \texttt{fsck} ordering. Initially, this was fine, but it has become increasingly mismatched. For network file systems, the \texttt{fsck} ordering is completely ignored and the ``device'' is really a network identifier. As the file system become increasingly exotic, such as FUSE, loopback, or distributed file systems, the model in the \texttt{fstab} becomes increasingly strange. Ultimately, the real pattern is that there is one driver for each file system, part of which lives in the kernel and part of which lives in the \texttt{mount} program and the \texttt{fstab} is part of a communication channel between the two.
+
+This pattern repeats itself many times. There are solutions that have been adopted. URIs are a simple abstraction over a very complicated configuration problem. CUPS uses URIs to identify printer backends. The abstraction is good because it allows CUPS to find the right backend and define a backend interface with the necessary complexity but forces the backend to solve the representation of its configuration space independently.
+
+LDAP has also solved this problem by defining a uniform way to represent and query different kinds of data. The application has a well-defined interface to the LDAP server, but the user can provide a sophisticated request to the LDAP server that is proxied, but not understood, by the application.
+
 \subsection{Composition}
+In the traditional model of a service run, set up on a machine once, and left to run, composition seems like a pointless endeavour: what is there to compose? In the cluster model, composition is suddenly more important. However, composition has always been important. Composition can be difficult to see because, when it is present, it fades into the background. When composition is absent, other techniques obscure the need.
+
+For good composition, LDAP is a worth-while example. LDAP has excellent composability by having three key features: the interface with the program is well-defined, the interface with the user is well-defined, and the marshalling between the two is well-defined. The LDAP interface from the binary is straight forward: open a connection, send a query, get back a list of self-describing dictionaries. Similarly, the LDAP interface for the user is straight forward: provide a URI for a connection, provide a query, list the fields of interest to access from the results. The query passed is simply a string and, unlike SQL, it is a sufficiently well-behaved entity that the client can send its request to the server with a minimum of string bashing and rewriting.
+
+For bad composition, any build tool will provide examples. The C compiler is a sufficiently obtuse build system that it needs Make to be able to compile programs. Because the split between header files and libraries, compile and link flags must be passed around separately. Although pkg-config has become the canonical source for flags, many libraries do not provide pkg-config definitions, so each program's build system must go through a platform-dependent set of steps to discover the correct flags to use a particular library. Determining the per-file build dependencies is also a non-trivial exercise and necessary to give Make the correct information to allow fast and accurate rebuilding of changed files. This lead to the development of tools like GNU AutoTools and CMake. In GNU AutoTools, the relay race is as follows: write a configuration script in two different languages (AutoMake and AutoConf's M4), which get translated to Make and a shell script, respectively, run the shell script so that it can detect the state of the build system and rewrite the Make file, then run the Makefile to invoke a shell to invoke the compiler with the correct flags. This is grossly simplified and ignore some of the other features of the programs involved. That being said, it is still exceedingly complicated and involves many layers of fragile escaping.
+
+Demand for composition only increases as layers of automation increase. Good composition works because:
+
+\begin{itemize}
+\item the interfaces between layers are well-defined.
+\item proxying is simple and does not involve fragile operations~(this requires that the interface is well-defined so the intervening layer can know how to proxy).
+\item adding intervening layers should not change the proxying behaviour. It should be the case that if data needs to be proxied, the same proxying semantics should work irrespective of the number of layers. Escaping is an example of this failing to be done; an user should not have to know the number of layers data will pass through to escape input data properly.
+\end{itemize}
+
+Escaping is one of the most obvious and pervasive symptoms of poor composition. The examples are everywhere: OpenSSH's \texttt{scp} does not escape certain file names properly, the escaping rules for strings in shell is extremely complicated and context dependent (\emph{i.e.}, escaping for command line arguments is different from here-doc), and the great multitude of HTML escaping.
+
 \subsection{Weird Machines}
 
+
 \section{Recommendations}
+It is possible to make configurations more manageable. I recommend the following:
+
+\begin{itemize}
+\item separate the macro systems so that all macro processing is a separate step that happens before running the server.
+\item remove the weird machines by recognising EPL and replacing them with existing programming languages, treating them with the rigour of traditional programming languages, or demoting them to bytecodes while passing the high-level programming to the macro system.
+\item recognise the common bridge problem and solve it using the established techniques.
+\end{itemize}
+
 \subsection{The Macro Solution}
 \subsubsection{The Failings of Traditional Programming Languages}
 \subsection{Abstraction of the Common Bridge}
-\subsection{Embedded Virtual Machines}
+The common bridge problem has been solved in many instances. Ultimately, solving the common bridge problem comes down to being appropriately agnostic of the data being handled.
+
+In the \texttt{fstab} example, there are functions in the kernel capable of creating a mount point and user space needs a way to call those functions. That is essentially a remote procedure call, except the remote procedure is is kernel space rather than a remote system and the bridge is a system call rather than a TCP socket, but the principle is the same. The code in the user space must take a complex data representation, serialise it, and send it over the channel, where it must be deserialised and processed.
+
+Any appropriate serialisation method is fine. Certainly, one which is human readable is more convenient. The format needs to be standard enough that the remote function is easily extracted. URIs excel at this for many applications. Again, looking to CUPS, each URI's scheme indicates to which backend (\emph{i.e.}, function) CUPS should send the data. The remainder of the URI is entirely in the hands of the backend, and outside CUPS's boundary of competence. URIs also have well-defined format, parsing, and escaping semantics.
+
+\subsection{Embedded Languages}
+\subsubsection{Embedded Virtual Machines}
 
 \subsection{Conclusions}
 
@@ -123,7 +161,7 @@ Well, it's getting boring isn't it.  This is the last subsection
 before we wrap it up.
 
 \section{Acknowledgments}
-Thanks to Kyle W.~Schaffrick for editing and assisting in classifying the patterns. Thanks to Dr.~Gr\'ainne Sheering, and James L.~Schofield for editing.
+Thanks to Kyle W.~Schaffrick for editing and assisting in classifying the patterns. Thanks to Dr.~Gr\'ainne Sheerin, Dr.~Dan G.~Brown, and James L.~Schofield for editing.
 
 {\footnotesize \bibliographystyle{acm}
 \bibliography{../common/bibliography}}
