@@ -1,5 +1,8 @@
 *.aux
+*.bbl
+*.blg
 *.ent
 *.log
+*.out
 *.pdf
 *.swp

@@ -28,7 +28,7 @@ Due to these factors, configuration of an application has become much more compl
 
 To build better configuration management software, one must first understand the problem being solved. Configuration seems simple enough: simply provide some values to an application on start-up. Unfortunately, the reality is more nuanced. Firstly, the number of methods for informing an application of its configuration is larger than expected. These include command line arguments, configuration files, environment variables, and values in a database. Secondly, those values can contain simple data types, paths, composite data types, macro languages, and even Turing complete programs that run inside the binary as part of its serving logic. A large number of these values also interact with each other in non-trivial ways; a change in one parameter can affect the interpretation of another. Finally, the output of the configuration is usually opaque to the programmer since the true output of the program is hidden inside the server. That is, there is part of the server that takes the configuration and interprets it, but there is generally no way to view this output. That interpretation depends on three conflated sources of information: the execution of the configuration (\emph{e.g.}, the macro expansion), the defaults provided by the binary, and the invisible interface of the binary (\emph{i.e.}, the parameters used by the server itself). It is concerning that the defaults provided by the server are not necessarily static themselves; they can be determined by the build process.
 
-Language-theoretic security researches have described an exploitation path where any input data that can direct the flow of a program has the potential to \emph{be} a program that exploits its host program. In this case, the host program is abstracted as a very unusual virtual machine, called a \emph{weird machine}. Configuration is intimately tied to this concept as the server is a weird machine for the configuration and the configuration and the server can be a weird machine for the queries.
+Language-theoretic security researches have described an exploitation path where any input data that can direct the flow of a program has the potential to \emph{be} a program that exploits its host program. In this case, the host program is abstracted as a very unusual virtual machine, called a \emph{weird machine}.\cite{cats,weird} Configuration is intimately tied to this concept as the server is a weird machine for the configuration and the configuration and the server can be a weird machine for the queries.
 
 \section{Survey of Configurations}
 In order to draw patterns, I analysed the configurations of several common servers. The goal is to look for patterns of three types: how defaults are propagated, how transformations are done on the configuration itself (\emph{i.e.}, macro languages), and the kinds of programming languages that are embedded in the configuration to be used during serving (as distinct from macro languages which are only processed at configuration time). One of the major concerns with these embedded programming languages~(EPL) is that they are underspecified; the semantics of their behaviour at not laid out as cleanly as would be expected in a normal programming language. They also may have incomplete separation from the macro languages in the configuration itself.
@@ -36,7 +36,7 @@ In order to draw patterns, I analysed the configurations of several common serve
 \subsection{Formats}
 One of the common myths is that the complexity of the configuration is related to the structure of the configuration format. That is, there is a tacit assumption that INI configurations are semantically simpler than JSON ones; which is demonstrably false. Although the servers studied use their own formats, they are remarkably similar.
 
-Most of the servers use hierarchical key-value stores; that is, something like an INI file, but the sections have implicitly nesting. In fact, the Windows registry is a hierarchical key-value store and can be serialised to INI. Samba's configuration format is exactly INI. Asterisk stores data in a modified INI file; it has an extra layer of hierarchy by storing many separate files. CUPS and Apache HTTPd look different from INI files, but this is only superficial. In both formats directives are effectively keys and the sections are nested into a hierarchy. Again, BIND and NGINX looks very different from INI files, but describe semantically similar content. All of these servers have an additional property, the order of directives matters. All the servers have access control lists~(ACL) that can be specified by a collection of ``allow'' and ``deny'' directives, for which the order of the directives matters. Most of the other directives are order independent.
+Most of the servers use hierarchical key-value stores; that is, something like an INI file, but the sections have implicitly nesting. In fact, the Windows registry is a hierarchical key-value store and can be serialised to INI. Samba's configuration format is exactly INI.\cite{samba} Asterisk stores data in a modified INI file; it has an extra layer of hierarchy by storing many separate files.\cite{asterisk} CUPS and Apache HTTPd look different from INI files, but this is only superficial. In both formats directives are effectively keys and the sections are nested into a hierarchy.\cite{cups,apache} Again, BIND and NGINX looks very different from INI files, but describe semantically similar content.\cite{bind,nginx} All of these servers have an additional property, the order of directives matters. All the servers have access control lists~(ACL) that can be specified by a collection of ``allow'' and ``deny'' directives, for which the order of the directives matters. Most of the other directives are order independent.
 
 Make has the most different format. I wish to justify the inclusion of Make as a configuration format at all. Build configurations of all kinds tend to straddle the divide between configuration format and script. For the purposes of this discussion, a script has control over the execution flow; in traditional programming languages, the author of the program has control over the order in which pieces of the program execute--this is true even in functional programming where the language itself has more control of the real behaviour of the programme. In a configuration, it is not the case. Make provides an example of this: it is not possible to create a circular dependency in Make as the Make interpreter can detect and block it. A Makefile is really a declaration of a desired scheduling behaviour of rule bodies that the Make interpreter executes. Make does have key-value pairs for variables, but the main focus of a Makefile is the build rules. A rule could be considered a key-value pair, with the body as the value and the sources and targets as the key, but the algorithm by which Make examines the composite keys would make that an inaccurate analogy. The rules are clearly separate configuration entities.
 
@@ -49,22 +49,22 @@ In any binary, the configuration elements must eventually be rendered to data st
 
 Default propagation has two modes: implicit, where the binary has rules that control how defaults are propagated, or explicit, where the programmer specifies how defaults are propagated. The ultimate value for a default must be present in the binary itself. Sometimes, that choice could be determined at compile time. In commodity software, this is a potentially unpleasant surprise for a user, since two identical configurations could produce differing behaviour in two identical versions of the software depending on the options selected by the packager at build time.
 
-Make has a very complex set of defaults, but ones that are extremely visible. Every copy of Make contains a default rule set that is compiled into the binary. A command-line flag can cause make to display this default configuration. GNU Make has some additional quirks: it will check for multiple Makefiles of differing names and capitalisations. If multiple ones are found, it will use a composite of them.
+Make has a very complex set of defaults, but ones that are extremely visible. Every copy of Make contains a default rule set that is compiled into the binary. A command-line flag can cause make to display this default configuration. GNU Make has some additional quirks: it will check for multiple Makefiles of differing names and capitalisations. If multiple ones are found, it will use a composite of them.\cite{make}
 
-CUPS and Samba have the simplest model. For CUPS, the configuration parameters for a printer can be inherited from a printer class or, if not present, assume a default from the binary. Here, the propagation mode is explicit because the user chooses a printer class for a printer. Printer classes cannot be nested, so the propagation is at most two steps. For Samba, the configuration parameters are inherited from the \texttt{global} section, or, if not present, assume a default from the binary. Here, the propagation model is implicit, since the user cannot specify from where defaults are copied.
+CUPS and Samba have the simplest model. For CUPS, the configuration parameters for a printer can be inherited from a printer class or, if not present, assume a default from the binary.\cite{cups} Here, the propagation mode is explicit because the user chooses a printer class for a printer. Printer classes cannot be nested, so the propagation is at most two steps. For Samba, the configuration parameters are inherited from the \texttt{global} section, or, if not present, assume a default from the binary.\cite{samba} Here, the propagation model is implicit, since the user cannot specify from where defaults are copied.
 
 Asterisk has a more complicated model that is both explicit and implicit. Stanzas maybe inherited by other stanzas and used as default. For instance, to have stanza $x$ inherit from $y$, the first line of the stanza would be \verb![x](y)!. Some stanzas can be declared as templates; to be ignored in the configuration itself and only to serve as a default for other stanzas. To create such a stanza $x$, the first line would be \verb#[x](!)#. Unfortunately, this is not the end of the algorithm. Some keys can also be inherited from the \texttt{general} stanza in a configuration. This is not true of all attributes and is defined by the binary.
 
-Apache has an implicit model based on the structure of the nesting of configuration elements. Not all configurations elements may be nested in one another, but ones which can implicitly take the same values as their containers unless overridden. There is some relationship between the URL-space generated by the configuration. \texttt{Options} directives control the behaviour of specific parts of the URL space and are configured by \texttt{Directory}, \texttt{Location}, and \texttt{Files} stanza in the configuration file and \verb!.htaccess! files in the directories being served. NGINX has a similar, though simplified, model.
+Apache has an implicit model based on the structure of the nesting of configuration elements. Not all configurations elements may be nested in one another, but ones which can implicitly take the same values as their containers unless overridden. There is some relationship between the URL-space generated by the configuration. \texttt{Options} directives control the behaviour of specific parts of the URL space and are configured by \texttt{Directory}, \texttt{Location}, and \texttt{Files} stanza in the configuration file and \verb!.htaccess! files in the directories being served.\cite{apache} NGINX has a similar, though simplified, model.\cite{nginx}
 
-BIND has a very complex model. It is worth noting that BIND has two configuration formats: one for the server itself and one for the DNS zones it is serving. In the zone format, which is much simpler, there is only one default, the TTL for a record, which is either specified for a record, inherited from the \texttt{\$TTL} directive, which is required. The server configuration, the default propagation algorithm depends on the directive. For instance, both the \texttt{dialup}  and \texttt{notify} options can be specified in the individual zones or the common \texttt{options} stanza. The \texttt{dialup} directive at in the common stanza overrides the option set in the zone stanzas, while the reverse is true for \texttt{notify}; the common \texttt{notify} value is inherited by the zones unless they override it.
+BIND has a very complex model. It is worth noting that BIND has two configuration formats: one for the server itself and one for the DNS zones it is serving. In the zone format, which is much simpler, there is only one default, the TTL for a record, which is either specified for a record, inherited from the \texttt{\$TTL} directive, which is required. The server configuration, the default propagation algorithm depends on the directive. For instance, both the \texttt{dialup}  and \texttt{notify} options can be specified in the individual zones or the common \texttt{options} stanza. The \texttt{dialup} directive at in the common stanza overrides the option set in the zone stanzas, while the reverse is true for \texttt{notify}; the common \texttt{notify} value is inherited by the zones unless they override it.\cite{bind}
 
 \subsection{Macro Languages and Embedded Programming Languages}
 I define a macro language to be a programming language that is embedded in the configuration and completes execution before a program beings processing user data. This is distinct from an EPL, which executes during processing of user data. This distinction is necessary but not necessarily obvious when inspecting the languages in configuration files. The distinction might be arbitrary, but it provides a useful razor: a macro language could be run to completion on a configuration independently of starting a program; this is not the case for an EPL which can be affected by user input during processing.
 
 The number of macro languages is surprisingly small as many of the things that appear to be macros are, in fact, EPLs. BIND posses a macro system in zone files. There are a number of preprocessing directives, including \texttt{\$TTL} and \texttt{\$ORIGIN}, which are meant to provide defaults for the remainder of the configuration. There is also the \texttt{\$GENERATE} macro that allows construction of large blocks of similar resource records. The names of in resource records are passed through a transformation to ensure they are suffixed with the correct domain and \texttt{@} is replaced with the current domain. All of these transformations can be done statically before BIND starts and produce a new zone file that is semantically equivalent to the original. BINDs configuration files have no macros of any kind.
 
-There are EPLs in Asterisk, Apache, BIND configuration file, Make, and NGINX. CUPS is the sole example that has no macro system or EPL.\endnote{CUPS does have PostScript Printer Descriptions which contain PostScript programs that are sent to printers, but these do not directly alter the flow inside CUPS itself. From CUPS's perspective, they are magic strings it sends to hapless printers.} Sambda straddles this like as it does not have an embedded programming language, but it can call shell commands and create files using a well-defined string substitution mechanism.
+There are EPLs in Asterisk, Apache, BIND configuration file, Make, and NGINX. CUPS is the sole example that has no macro system or EPL.\endnote{CUPS does have PostScript Printer Descriptions which contain PostScript programs that are sent to printers, but these do not directly alter the flow inside CUPS itself. From CUPS's perspective, they are magic strings it sends to hapless printers.} Samba straddles this like as it does not have an embedded programming language, but it can call shell commands and create files using a well-defined string substitution mechanism.
 
 NGINX has the simplest EPL used to perform URL rewriting. Each rewriting block can invoke the instruction \texttt{last}, which causes the URL rewriting to start again based on modified URL. This instruction is a jump instruction. Coupled with the conditions provided by other rules, NGINX's rewriting system is now a Turing-complete programming language that is executed from every incoming query. Since an unprivileged user of NGINX now has the opportunity to control the behaviour of NGINX, this qualifies as a weird machine.
 
@@ -108,7 +108,7 @@ BIND's \texttt{\$GENERATE} directive is clearly a way to avoid writing very repe
 The explicit form has two major advantages: it is stable and it comparable. If a default is changed in the binary, then it will be invisibly changed during upgrade if the configuration is terse. If the configuration is explicit, it has been stated in every required place, so the changed default will be unnoticed. This makes the configuration more robust to upgrades. When the time for change has come, it also allows direct comparison of all the values. It will provide a clear and complete, though tedious, comparison of the changes made.
 
 \subsection{The Common Bridge Problem}
-Often, a configuration must represent disparate objects in a uniform way. The simplest example comes from the \texttt{fstab}, where each entry for a mount point contains a device, a target path, a file system type, some options, and \texttt{fsck} ordering. Initially, this was fine, but it has become increasingly mismatched. For network file systems, the \texttt{fsck} ordering is completely ignored and the ``device'' is really a network identifier. As the file system become increasingly exotic, such as FUSE, loopback, or distributed file systems, the model in the \texttt{fstab} becomes increasingly strange. Ultimately, the real pattern is that there is one driver for each file system, part of which lives in the kernel and part of which lives in the \texttt{mount} program and the \texttt{fstab} is part of a communication channel between the two.
+Often, a configuration must represent disparate objects in a uniform way. The simplest example comes from the \texttt{fstab}, where each entry for a mount point contains a device, a target path, a file system type, some options, and \texttt{fsck} ordering.\cite{fstab} Initially, this was fine, but it has become increasingly mismatched. For network file systems, the \texttt{fsck} ordering is completely ignored and the ``device'' is really a network identifier. As the file system become increasingly exotic, such as FUSE, loopback, or distributed file systems, the model in the \texttt{fstab} becomes increasingly strange. Ultimately, the real pattern is that there is one driver for each file system, part of which lives in the kernel and part of which lives in the \texttt{mount} program and the \texttt{fstab} is part of a communication channel between the two.
 
 This pattern repeats itself many times. There are solutions that have been adopted. URIs are a simple abstraction over a very complicated configuration problem. CUPS uses URIs to identify printer backends. The abstraction is good because it allows CUPS to find the right backend and define a backend interface with the necessary complexity but forces the backend to solve the representation of its configuration space independently.
 
@@ -195,67 +195,51 @@ Input-output is also a focus of traditional languages and not of interest in con
 A useful configuration language will inherit some of the behaviours of functional and procedural languages, but, perhaps a more insightful focus, it can jettison large amount of behaviour from general purpose programming languages.
 
 \subsubsection{Current Configuration Languages}
-Presently, there are a handful of configuration languages. These languages are in their infancy, so this survey only attempts to draw attention to their prominent features.
+Presently, there are a handful of configuration languages. These languages are in their infancy, so this survey only attempts to draw attention to their prominent features. A summary of features is shown in Table~\ref{tbl:features}.
 
-\paragraph{Coil:} \url{https://code.google.com/p/coil/} \\
-\emph{Paradigm:} Functional, side-effect free, prototype inheritance \\
-\emph{Typing Discipline:} String, dynamic \\
-\emph{Turing Complete:} No \\
-\emph{Scoping:} Lexical \\
-\emph{Default Propagation:} Inheritance \\
-\emph{Output Format:} Python objects
+\begin{table*}
+\caption{\label{tbl:features}Comparison of configuration languages}
+\begin{tabular}{lcccccc}
+\hline
+										& Coil						& Flabbergast					& Jsonnet			& NixOS				& Pan & Pystachio \\\hline
+Paradigm						& Functional			& Functional					&	Functional	& Functional	& Imperative			& Imperative \\
+Side-effect Free		& Yes							& Yes									&	Yes					& Yes					& No							& Hybrid$^*$ \\
+Inheritance					& Prototype				& Prototype						&	Prototype		& None				& Class-based			& Class-based \\
+Typing Strength			& Weak						& Strong							&	Strong			& Strong			& Strong					& Strong \\
+Typing Enforcement	& Dynamic					& Dynamic							&	Dynamic			& Dynamic			& Hybrid$^*$			& Dynamic \\
+Schema Validation		& None						& None								& None				& None				& Assignment			& Request \\
+Turing Complete			& No							& Yes									& Yes					& Yes					& Yes							& No \\
+Scoping							& Lexical					& Dynamic							& Lexical			& Lexical			& Lexical					& Hybrid$^*$ \\
+Default Propagation	& Inheritance			&	Scope, inheritance	& Inheritance	& Operator		& Inheritance			& Inheritance \\
+Output Format				& Python					&	Text, Custom				& JSON				& Custom			& JSON, XML				& Python \\
+\hline
+\end{tabular}
+$^*$ Depends on context. See description for details.
+\end{table*}
+
+\paragraph{Coil:} \url{https://code.google.com/p/coil/}
 
 \noindent Coil defines a key-value hierarchy. Any object in can inherit another object by way of an absolute or relative path. The inherited values, or values of child objects, can be overridden. Values can be strings with substitutions, integers, or lists with substitutions. String substitution allows templating using values defined in the hierarchy. Coil also has a \texttt{@map} operator to generate similar objects.
 
 \paragraph{Flabbergast:} \url{https://github.com/apmasell/flabbergast} \\
-\emph{Paradigm:} Functional, side-effect free, prototype inheritance \\
-\emph{Typing Discipline:} Strong, dynamic, duck \\
-\emph{Turing Complete:} Yes \\
-\emph{Scoping:} Dynamic \\
-\emph{Default Propagation:} Dynamic scope, Inheritance \\
-\emph{Output Format:} Text, Custom
 
 \noindent Flabbergast constructs a key-value hierarchy similar to JSON. Each value is an expression that can reference the values of other keys using an unusual dynamic scoping method. Flabbergast allows prototype inheritance through ``templates'', which also function as lambdas with multiple return values. Flabbergast does not imply a particular output format; it allows the program to construct an arbitrary string which it writes to a file as output.
 
 \noindent\emph{The author of this paper is the developer of Flabbergast.}
 
 \paragraph{Jsonnet:} \url{http://google.github.io/jsonnet/doc/} \\
-\emph{Paradigm:} Functional, side-effect free, prototype inheritance \\
-\emph{Typing Discipline:} Strong, dynamic, duck \\
-\emph{Turing Complete:} Yes \\
-\emph{Scoping:} Lexical \\
-\emph{Default Propagation:} Inheritance \\
-\emph{Output Format:} JSON
 
 \noindent Jsonnet looks very similar to JSON, but reintroduces some JavaScript-like features. Each value is an expression that can reference other values specifying a path of key names from the root of the tree to the desired value. Any object in the tree can be used as a prototype for another object.
 
 \paragraph{NixOS:} \url{http://nixos.org/} \\
-\emph{Paradigm:} Functional, side-effect free \\
-\emph{Typing Discipline:} Strong, dynamic, duck\\
-\emph{Turing Complete:} Yes \\
-\emph{Scoping:} Lexical \\
-\emph{Default Propagation:} Operator\\
-\emph{Output Format:} Custom
 
 \noindent NixOS constructs a key-value hierarchy. Each value is an expression that can reference the values of other keys referencing other values using a path of key names. The resolution starts in the current collection, or one of the capturing constructs, such as \texttt{lambda} or \texttt{let}, and checks through the nested constructs until it reaches the root. While NixOS does not have an inheritance mechanism, it does have a set of default propagation operator: the \texttt{or} operator is a null coalescence for a value, and the \texttt{//} operator is a null coalescence for all the values of a pair of collections.
 
 \paragraph{Pan:} \url{http://www.quattor.org/} \\
-\emph{Paradigm:} Imperative, tuple-space \\
-\emph{Typing Discipline:} Strong, static-dynamic hybrid, check-on-assignment \\
-\emph{Turing Complete:} Yes \\
-\emph{Scoping:} Lexical \\
-\emph{Default Propagation:} Inherited \\
-\emph{Output Format:} JSON, XML
 
 \noindent Pan defines classes for object where fields can have very specific types, including range types and strings matching expressions. Instances of types can be instantiated and mutated through a series of imperative operations. There is an generated output tuple-space containing the target configuration. Local variables created in the imperative language are in a separate name-space from the keys in the object hierarchy being constructed. The tuple space can be read from or written to using paths of key names; paths maybe relative or absolute.
 
 \paragraph{Pystachio:} \url{https://github.com/wickman/pystachio} \\
-\textbf{Paradigm:} Imperative~(By Python), immutable, class-based \\
-\textbf{Typing Discipline:} Strong, dynamic, check-on-request \\
-\textbf{Turing Complete:} Yes~(By Python) \\
-\textbf{Scoping:} Dynamic, Lexical for the Python components \\
-\textbf{Default Propagation:} Inheritance \\
-\textbf{Output Format:} Python
 
 \noindent Pystachio is a configuration data model and string template system built on top of Python. Any imperative features come from Python itself, rather than the Pystachio data model. \texttt{Struct}s define classes for data object and the required types. Instantiated objects be associated with environments, that provide values for templates defined in \texttt{Struct}s. Once all the templates variables are resolved, the resulting value can be type checked and used.
 
