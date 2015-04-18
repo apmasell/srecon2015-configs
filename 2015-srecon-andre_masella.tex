@@ -1,5 +1,5 @@
 \documentclass[letterpaper,twocolumn,10pt]{article}
-\usepackage{usenix,endnotes,verbatim}
+\usepackage{usenix,endnotes,verbatim,hyperref}
 \hyphenation{NGINX}
 \begin{document}
 
@@ -51,7 +51,7 @@ Default propagation has two modes: implicit, where the binary has rules that con
 
 Make has a very complex set of defaults, but ones that are extremely visible. Every copy of Make contains a default rule set that is compiled into the binary. A command-line flag can cause make to display this default configuration. GNU Make has some additional quirks: it will check for multiple Makefiles of differing names and capitalisations. If multiple ones are found, it will use a composite of them.
 
-CUPS has the simplest model: the configuration parameters for a printer can be inherited from a printer class or, if not present, assume a default from the binary. Here, the propagation mode is explicit because the user chooses a printer class for a printer. Printer classes cannot be nested, so the propagation is at most two steps.
+CUPS and Samba have the simplest model. For CUPS, the configuration parameters for a printer can be inherited from a printer class or, if not present, assume a default from the binary. Here, the propagation mode is explicit because the user chooses a printer class for a printer. Printer classes cannot be nested, so the propagation is at most two steps. For Samba, the configuration parameters are inherited from the \texttt{global} section, or, if not present, assume a default from the binary. Here, the propagation model is implicit, since the user cannot specify from where defaults are copied.
 
 Asterisk has a more complicated model that is both explicit and implicit. Stanzas maybe inherited by other stanzas and used as default. For instance, to have stanza $x$ inherit from $y$, the first line of the stanza would be \verb![x](y)!. Some stanzas can be declared as templates; to be ignored in the configuration itself and only to serve as a default for other stanzas. To create such a stanza $x$, the first line would be \verb#[x](!)#. Unfortunately, this is not the end of the algorithm. Some keys can also be inherited from the \texttt{general} stanza in a configuration. This is not true of all attributes and is defined by the binary.
 
@@ -64,7 +64,7 @@ I define a macro language to be a programming language that is embedded in the c
 
 The number of macro languages is surprisingly small as many of the things that appear to be macros are, in fact, EPLs. BIND posses a macro system in zone files. There are a number of preprocessing directives, including \texttt{\$TTL} and \texttt{\$ORIGIN}, which are meant to provide defaults for the remainder of the configuration. There is also the \texttt{\$GENERATE} macro that allows construction of large blocks of similar resource records. The names of in resource records are passed through a transformation to ensure they are suffixed with the correct domain and \texttt{@} is replaced with the current domain. All of these transformations can be done statically before BIND starts and produce a new zone file that is semantically equivalent to the original. BINDs configuration files have no macros of any kind.
 
-There are EPLs in Asterisk, Apache, BIND configuration file, Make, and NGINX. CUPS is the sole example that has no macro system or EPL.\endnote{CUPS does have PostScript Printer Descriptions which contain PostScript programs that are sent to printers, but these do not directly alter the flow inside CUPS itself. From CUPS's perspective, they are magic strings it sends to hapless printers.}
+There are EPLs in Asterisk, Apache, BIND configuration file, Make, and NGINX. CUPS is the sole example that has no macro system or EPL.\endnote{CUPS does have PostScript Printer Descriptions which contain PostScript programs that are sent to printers, but these do not directly alter the flow inside CUPS itself. From CUPS's perspective, they are magic strings it sends to hapless printers.} Sambda straddles this like as it does not have an embedded programming language, but it can call shell commands and create files using a well-defined string substitution mechanism.
 
 NGINX has the simplest EPL used to perform URL rewriting. Each rewriting block can invoke the instruction \texttt{last}, which causes the URL rewriting to start again based on modified URL. This instruction is a jump instruction. Coupled with the conditions provided by other rules, NGINX's rewriting system is now a Turing-complete programming language that is executed from every incoming query. Since an unprivileged user of NGINX now has the opportunity to control the behaviour of NGINX, this qualifies as a weird machine.
 
@@ -101,7 +101,7 @@ All of the configurations surveyed, and many others, share behaviours that are u
 \subsection{Terse versus Explicit -- The Macro and Defaults Problem}
 As the person responsible for initial configuration of a program, there is a strong desire for the configuration to be as terse as possible. However, for the person debugging the configuration, it it is desirable for the configuration to be as explicit as possible. Ultimately, these two goals are in direct opposition.
 
-Both macro systems (and EPLs) and default propagation are attempting to solve the same problem: making the configuration more terse. In the final in-memory representation of the configuration objects, many of the configuration values will be duplicated. Recall the example of CUPS's page limit, which is set for each printer known to the server. Default propagation can be seen a kind of macro system: it is a rewriting of the configuration before any user input is handled. In theory, one could separate the default propagation into a separate step. Some binaries, including CUPS and SAMBA provide options to ``pretty print'' their configurations, but what they are doing is providing a version where all the defaults have been propagated. This elaborated configuration file is now as explicit as possible, but much less terse.
+Both macro systems (and EPLs) and default propagation are attempting to solve the same problem: making the configuration more terse. In the final in-memory representation of the configuration objects, many of the configuration values will be duplicated. Recall the example of CUPS's page limit, which is set for each printer known to the server. Default propagation can be seen a kind of macro system: it is a rewriting of the configuration before any user input is handled. In theory, one could separate the default propagation into a separate step. Some binaries, including CUPS and Samba provide options to ``pretty print'' their configurations, but what they are doing is providing a version where all the defaults have been propagated. This elaborated configuration file is now as explicit as possible, but much less terse.
 
 BIND's \texttt{\$GENERATE} directive is clearly a way to avoid writing very repetitive resource records into the zone file. This is important from a human perspective: a block of very repetitive records is likely to accumulate unnoticed errors. The terse form is more comprehensible and semantically relevant to a human than the explicit form.
 
@@ -154,10 +154,112 @@ It is possible to make configurations more manageable. I recommend the following
 \item separate the macro systems so that all macro processing is a separate step that happens before running the server.
 \item remove the weird machines by recognising EPL and replacing them with existing programming languages, treating them with the rigour of traditional programming languages, or demoting them to bytecodes while passing the high-level programming to the macro system.
 \item recognise the common bridge problem and solve it using the established techniques.
+\item configurations that act as intermediates (\emph{e.g.}, Docker), should always support raw strings. When embedding one configuration in another, escaping becomes difficult to do correctly and even more difficult for a human to read. It would be ideal if the configuration could read a user-specified number of bytes from the input with no escaping or translation of any kind.
 \end{itemize}
 
 \subsection{The Macro Solution}
+Expansion of terse configurations into elaborate ones is a useful and desirable goal. The same arguments for having general purpose languages that compile to machine code apply to why there should be terse configurations that expand to general ones. Most of the languages used to expand configurations are text-based macro systems, yet text-based macro systems have been abandoned as compiler for general purpose languages in favour of compiler capable of analysis and verification of the program being compiled. One should have the same expectation of configurations. I propose \emph{configuration language} to describe a general purpose language intended for creating configurations, as opposed to the executable code generated by general purpose programming languages.
+
+By creating a separate configuration language that processes a terse configuration file and generates an explicit one, there are several immediate benefits:
+
+\begin{itemize}
+\item the explicit configuration can be compared when changes are made. That is, it is diffable.
+\item default propagation can be made uniform, since it is implied by a standard language, rather than each binary.
+\item input handling in the application becomes simpler:
+	\begin{itemize}
+	\item defaults can be moved entirely out of the binary.
+	\item the structure of the configuration can closely resemble the data structures in the binary.
+	\item the data is more likely to be representable as JSON, YAML, INI, or another standard format for which a parser already exists.
+  \end{itemize}
+\item libraries can be built for the configuration allowing code reuse.
+\item upgrading can be handle more gracefully since upgrading the binary presently means changing the defaults and changing the data structures; this can now be broken into a two-step operation.
+\item a small number of popular configuration languages can develop tool and debugger support, whereas this is impractical if each binary has a unique configuration format.
+\item configurations can be composed because the same language is used for the different binaries being composed.
+\end{itemize}
+
+Some of this is daunting in a way that is typical of software development in general. Obviously, creating reusable libraries brings with it the challenges always faced with libraries: APIs and versioning. Bringing some of the challenges of traditional software development should not be a deterrent to bringing them to configurations, especially when it brings many of the assured benefits of traditional software development.
+
 \subsubsection{The Failings of Traditional Programming Languages}
+There is an obvious question to be answered: what is the benefit of creating a new class of programming languages to solve this problem? Why not use existing languages that bring with them tools, libraries, and experience? The glib answer is that: if any traditional programming languages were good at being configurations, they would have achieved some wide-spread adoption for that purpose.
+
+For arguments sake, programming languages can be separated into two groups: functional and procedural. The difficult parts of configuration files are default propagation and composition.
+
+Functional languages are very good at composition of data, but have no easy mechanism for default propagation. In most functional languages, all data needs to be passed explicitly as a parameter. This is cumbersome for configurations. It is possible to use function composition to achieve some of this, but it requires considerable rigidity in the format of the data, which is at odds with configurations where most values are defaults most of the time. This is partly because most functional languages use algebraic data types and the receiver must know the entire structure of a type to use it; it is not possible in most functional languages to create an update version of a type with new fields and not update existing code even if these new fields are unneeded.
+
+Procedural languages, especially object-oriented ones, are good at composition of program flow and data. Default propagation is better: objects and initialisers can propagate defaults. However, explicit control of data flow becomes cumbersome as the defaults propagated become sensitive to the order of execution since the defaults in one part of the configuration can be mutated after propagation. One advantage to object-oriented procedural languages is that the receiver of an object can ignore new or uninteresting features of an object, unlike algebraic data types.
+
+Both groups of languages have a heavy focus on data flow. The order of execution, or implied lack of execution, is a prominent feature in both groups. Functional languages often proclaim the order of execution is unimportant, but this is not strictly true when looking at error handling. In most functional languages, a program stops at the first error discovered. For configurations, the order of execution is important and it \emph{is} reasonable to continue executing to discover more errors. Most functional languages still imply some linear order of execution, even if the compiler has control over that order, whereas configuration languages do not require this behaviour. The configuration, in general, can be treated in parallel, and only certain operations will cause junctions in execution flow.
+
+Input-output is also a focus of traditional languages and not of interest in configuration languages. Configuration languages will always be run in the same manner: take collection of input files and produce an output configuration. There's no desire to have a long-running configuration language. Writing the next generation of servers is not a goal for a configuration language, so stateful file and network access is not needed. There will need to be some method to import sources of data, but this is a much more restricted case of the general input-output required in general purpose programming languages. 
+
+A useful configuration language will inherit some of the behaviours of functional and procedural languages, but, perhaps a more insightful focus, it can jettison large amount of behaviour from general purpose programming languages.
+
+\subsubsection{Current Configuration Languages}
+Presently, there are a handful of configuration languages. These languages are in their infancy, so this survey only attempts to draw attention to their prominent features.
+
+\paragraph{Coil:} \url{https://code.google.com/p/coil/} \\
+\emph{Paradigm:} Functional, side-effect free, prototype inheritance \\
+\emph{Typing Discipline:} String, dynamic \\
+\emph{Turing Complete:} No \\
+\emph{Scoping:} Lexical \\
+\emph{Default Propagation:} Inheritance \\
+\emph{Output Format:} Python objects
+
+\noindent Coil defines a key-value hierarchy. Any object in can inherit another object by way of an absolute or relative path. The inherited values, or values of child objects, can be overridden. Values can be strings with substitutions, integers, or lists with substitutions. String substitution allows templating using values defined in the hierarchy. Coil also has a \texttt{@map} operator to generate similar objects.
+
+\paragraph{Flabbergast:} \url{https://github.com/apmasell/flabbergast} \\
+\emph{Paradigm:} Functional, side-effect free, prototype inheritance \\
+\emph{Typing Discipline:} Strong, dynamic, duck \\
+\emph{Turing Complete:} Yes \\
+\emph{Scoping:} Dynamic \\
+\emph{Default Propagation:} Dynamic scope, Inheritance \\
+\emph{Output Format:} Text, Custom
+
+\noindent Flabbergast constructs a key-value hierarchy similar to JSON. Each value is an expression that can reference the values of other keys using an unusual dynamic scoping method. Flabbergast allows prototype inheritance through ``templates'', which also function as lambdas with multiple return values. Flabbergast does not imply a particular output format; it allows the program to construct an arbitrary string which it writes to a file as output.
+
+\noindent\emph{The author of this paper is the developer of Flabbergast.}
+
+\paragraph{Jsonnet:} \url{http://google.github.io/jsonnet/doc/} \\
+\emph{Paradigm:} Functional, side-effect free, prototype inheritance \\
+\emph{Typing Discipline:} Strong, dynamic, duck \\
+\emph{Turing Complete:} Yes \\
+\emph{Scoping:} Lexical \\
+\emph{Default Propagation:} Inheritance \\
+\emph{Output Format:} JSON
+
+\noindent Jsonnet looks very similar to JSON, but reintroduces some JavaScript-like features. Each value is an expression that can reference other values specifying a path of key names from the root of the tree to the desired value. Any object in the tree can be used as a prototype for another object.
+
+\paragraph{NixOS:} \url{http://nixos.org/} \\
+\emph{Paradigm:} Functional, side-effect free \\
+\emph{Typing Discipline:} Strong, dynamic, duck\\
+\emph{Turing Complete:} Yes \\
+\emph{Scoping:} Lexical \\
+\emph{Default Propagation:} Operator\\
+\emph{Output Format:} Custom
+
+\noindent NixOS constructs a key-value hierarchy. Each value is an expression that can reference the values of other keys referencing other values using a path of key names. The resolution starts in the current collection, or one of the capturing constructs, such as \texttt{lambda} or \texttt{let}, and checks through the nested constructs until it reaches the root. While NixOS does not have an inheritance mechanism, it does have a set of default propagation operator: the \texttt{or} operator is a null coalescence for a value, and the \texttt{//} operator is a null coalescence for all the values of a pair of collections.
+
+\paragraph{Pan:} \url{http://www.quattor.org/} \\
+\emph{Paradigm:} Imperative, tuple-space \\
+\emph{Typing Discipline:} Strong, static-dynamic hybrid, check-on-assignment \\
+\emph{Turing Complete:} Yes \\
+\emph{Scoping:} Lexical \\
+\emph{Default Propagation:} Inherited \\
+\emph{Output Format:} JSON, XML
+
+\noindent Pan defines classes for object where fields can have very specific types, including range types and strings matching expressions. Instances of types can be instantiated and mutated through a series of imperative operations. There is an generated output tuple-space containing the target configuration. Local variables created in the imperative language are in a separate name-space from the keys in the object hierarchy being constructed. The tuple space can be read from or written to using paths of key names; paths maybe relative or absolute.
+
+\paragraph{Pystachio:} \url{https://github.com/wickman/pystachio} \\
+\textbf{Paradigm:} Imperative~(By Python), immutable, class-based \\
+\textbf{Typing Discipline:} Strong, dynamic, check-on-request \\
+\textbf{Turing Complete:} Yes~(By Python) \\
+\textbf{Scoping:} Dynamic, Lexical for the Python components \\
+\textbf{Default Propagation:} Inheritance \\
+\textbf{Output Format:} Python
+
+\noindent Pystachio is a configuration data model and string template system built on top of Python. Any imperative features come from Python itself, rather than the Pystachio data model. \texttt{Struct}s define classes for data object and the required types. Instantiated objects be associated with environments, that provide values for templates defined in \texttt{Struct}s. Once all the templates variables are resolved, the resulting value can be type checked and used.
+
+
 \subsection{Abstraction of the Common Bridge}
 The common bridge problem has been solved in many instances. Ultimately, solving the common bridge problem comes down to being appropriately agnostic of the data being handled.
 
@@ -168,7 +270,7 @@ Any appropriate serialisation method is fine. Certainly, one which is human read
 \subsection{Embedded Languages}
 Embedded programming languages are a bottomless well of concerns for security, but, ultimately, some configuration needs to specify complex behaviour. Language-theoretic security researchers recommend stripping out as much Turing completeness as possible to avoid creating weird machines. I will elaborate on this idea and expand the solution for configurations.
 
-The first step should be to identify whether Turning completeness is required at all. It is recommended to try to reduce the problem to a regular language or deterministic context-free grammar. If this is possible, then the problem is a great deal simpler. If it is impossible, then the programming language should be considered carefully as if designing a general purpose programming language. Mr.~Schaffrick pointed out: there are many obscure programming languages that few people know; when you create a new programming language, you can be guaranteed that no one will know it. If an embedded programming languages is needed, why not use Guile, Lua, FORTH, GameMonkey script, AngelScript, TCL, or JavaScript? Any of these has easily-embedded run-time that allow plugging-in foreign functions to interface with the host program. All the issues of language design, validation, verification, type checking, the object model, documentation, optimisation, and future development are externalised to a community of people focussed on doing that well.
+The first step should be to identify whether Turning completeness is required at all. It is recommended to try to reduce the problem to a regular language or deterministic context-free grammar. If this is possible, then the problem is a great deal simpler. If it is impossible, then the programming language should be considered carefully as if designing a general purpose programming language. Mr.~Schaffrick pointed out: there are many obscure programming languages that few people know; when you create a new programming language, you can be guaranteed that no one will know it. If an embedded programming languages is needed, why not use Guile, Lua, FORTH, GameMonkey script, AngelScript, TCL, Squirrel, or JavaScript? Any of these, or another such language, has easily-embedded run-time that allow plugging-in foreign functions to interface with the host program. All the issues of language design, validation, verification, type checking, the object model, documentation, optimisation, and future development are externalised to a community of people focussed on doing that well.
 
 If using an existing language is impractical or provides too much power~(\emph{i.e.}, the program can be restricted to a Turing-incomplete language), a lot of thought should be put into the design of the language. Minimising the surface of the language also minimises the potential for a weird machine. As a first step, define the machine on which the language operates. Is the machine going to have named registers~(\emph{i.e.}, variables) or be a stack machine? A stack machine is simpler to implement and simpler to write a verifier. What will the language look like? If the language looks more like assembly language or like a stack language (\emph{e.g.}, PostScript or FORTH), the parser will be simpler to implement. What types are needed in the language? Obviously, fewer is better and avoiding ones which require state. Next, define all the operations in the language and specify how they alter the machine state. Now, it is possible to implement this machine. As per standard practise, parsing the language and verifying it should be separate steps. Writing an efficient interpreter is something that should be avoided. If running on a virtual machine, such as the JVM or CLR, there are libraries that allow dynamic compilation and loading of bytecode; this dynamically generated bytecode can be optimised and in-lined by the JIT. If running on the native machine, LLVM provides an framework to compile and JIT and retrieve a function pointer to a dynamically compiled function.
 
@@ -178,14 +280,13 @@ Using either a custom language or an existing one, it is important to extricate 
 
 \subsection{Conclusions}
 
-Well, it's getting boring isn't it.  This is the last subsection
-before we wrap it up.
+Configuration files are far more complicated than the first appear. Many configuration files define embedded programming languages that can alter the execution flow in a binary in Turing-complete, potentially exploitable ways. There are a variety of default propagation schemes used by different binaries. Currently, configurations are not easily composable. There is value in tools that provide a standard default propagation schemes and provide some level of composition. Some tools are being developed to fill this niche, but they still fairly immature.
 
 \section{Acknowledgments}
 Thanks to Kyle W.~Schaffrick for editing and assisting in classifying the patterns. Thanks to Dr.~Gr\'ainne Sheerin, Dr.~Dan G.~Brown, and James L.~Schofield for editing.
 
 {\footnotesize \bibliographystyle{acm}
-\bibliography{../common/bibliography}}
+\bibliography{2015-srecon-andre_masella}}
 
 \theendnotes
 
