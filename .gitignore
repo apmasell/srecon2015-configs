@@ -3,6 +3,9 @@
 *.blg
 *.ent
 *.log
+*.nav
 *.out
 *.pdf
+*.snm
 *.swp
+*.toc
