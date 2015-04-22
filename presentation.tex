@@ -170,16 +170,39 @@ A language for configurations needs:
 \end{frame}
 
 \begin{frame}\frametitle{Existing Configuration Languages}
-\begin{itemize}
-\item Coil
-\item Flabbergast$^*$
-\item HOCON
-\item Jsonnet
-\item NixOS
-\item Pan
-\item Pystachio
-\end{itemize}
-$^*$ Mine.
+\tiny
+\begin{tabular}{lcccc}
+\hline
+										& Coil						& Flabbergast$^\dagger$& HOCON					& Jsonnet		\\\hline
+Paradigm						& Functional			& Functional					& Imperative$^*$&	Functional	\\
+Side-effect Free		& Yes							& Yes									& No						&	Yes					\\
+Inheritance					& Prototype				& Prototype						& Prototype			&	Prototype		\\
+Typing Strength			& Weak						& Strong							& Weak					&	Strong			\\
+Typing Enforcement	& Dynamic					& Dynamic							&	Dynamic				&	Dynamic			\\
+Schema Validation		& None						& None								& None					& None				\\
+Turing Complete			& No							& Yes									& No						& Yes					\\
+Scoping							& Lexical					& Dynamic							& Lexical				& Lexical			\\
+Default Propagation	& Inheritance			&	Scope, inheritance	& Inheritance		& Inheritance	\\
+Output Format				& Python objects	&	Text, Custom				& Java, Python, or Ruby objects & JSON		\\
+\hline
+\end{tabular}\\
+\begin{tabular}{lccc}
+\hline
+										& NixOS				& Pan & Pystachio \\\hline
+Paradigm						& Functional	& Imperative			& Imperative \\
+Side-effect Free		& Yes					& No							& Hybrid$^*$ \\
+Inheritance					& None				& Class-based			& Class-based \\
+Typing Strength			& Strong			& Strong					& Strong \\
+Typing Enforcement	& Dynamic			& Hybrid$^*$			& Dynamic \\
+Schema Validation		& None				& Assignment			& Request \\
+Turing Complete			& Yes					& Yes							& No \\
+Scoping							& Lexical			& Lexical					& Hybrid$^*$ \\
+Default Propagation	& Operator		& Inheritance			& Inheritance \\
+Output Format				& Java objects			& JSON, XML				& Python objects \\
+\hline
+\end{tabular}\\
+$^*$ Depends on context.
+$^\dagger$ Mine.
 \end{frame}
 
 \begin{frame}\frametitle{Existing Configuration Languages}
