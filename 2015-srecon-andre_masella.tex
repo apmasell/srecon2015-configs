@@ -199,50 +199,61 @@ Presently, there are a handful of configuration languages. These languages are i
 
 \begin{table*}
 \caption{\label{tbl:features}Comparison of configuration languages}
-\begin{tabular}{lcccccc}
+\scriptsize
+\begin{tabular}{lccccccc}
 \hline
-										& Coil						& Flabbergast					& Jsonnet			& NixOS				& Pan & Pystachio \\\hline
-Paradigm						& Functional			& Functional					&	Functional	& Functional	& Imperative			& Imperative \\
-Side-effect Free		& Yes							& Yes									&	Yes					& Yes					& No							& Hybrid$^*$ \\
-Inheritance					& Prototype				& Prototype						&	Prototype		& None				& Class-based			& Class-based \\
-Typing Strength			& Weak						& Strong							&	Strong			& Strong			& Strong					& Strong \\
-Typing Enforcement	& Dynamic					& Dynamic							&	Dynamic			& Dynamic			& Hybrid$^*$			& Dynamic \\
-Schema Validation		& None						& None								& None				& None				& Assignment			& Request \\
-Turing Complete			& No							& Yes									& Yes					& Yes					& Yes							& No \\
-Scoping							& Lexical					& Dynamic							& Lexical			& Lexical			& Lexical					& Hybrid$^*$ \\
-Default Propagation	& Inheritance			&	Scope, inheritance	& Inheritance	& Operator		& Inheritance			& Inheritance \\
-Output Format				& Python					&	Text, Custom				& JSON				& Custom			& JSON, XML				& Python \\
+										& Coil						& Flabbergast					& HOCON					& Jsonnet			& NixOS				& Pan & Pystachio \\\hline
+Paradigm						& Functional			& Functional					& Imperative$^*$&	Functional	& Functional	& Imperative			& Imperative \\
+Side-effect Free		& Yes							& Yes									& No						&	Yes					& Yes					& No							& Hybrid$^*$ \\
+Inheritance					& Prototype				& Prototype						& Prototype			&	Prototype		& None				& Class-based			& Class-based \\
+Typing Strength			& Weak						& Strong							& Weak					&	Strong			& Strong			& Strong					& Strong \\
+Typing Enforcement	& Dynamic					& Dynamic							&	Dynamic				&	Dynamic			& Dynamic			& Hybrid$^*$			& Dynamic \\
+Schema Validation		& None						& None								& None					& None				& None				& Assignment			& Request \\
+Turing Complete			& No							& Yes									& No						& Yes					& Yes					& Yes							& No \\
+Scoping							& Lexical					& Dynamic							& Lexical				& Lexical			& Lexical			& Lexical					& Hybrid$^*$ \\
+Default Propagation	& Inheritance			&	Scope, inheritance	& Inheritance		& Inheritance	& Operator		& Inheritance			& Inheritance \\
+Output Format				& Python objects	&	Text, Custom				& Java, Python, or Ruby objects		& JSON				& Java objects			& JSON, XML				& Python objects \\
 \hline
-\end{tabular}
+\end{tabular}\\
 $^*$ Depends on context. See description for details.
 \end{table*}
 
-\paragraph{Coil:} \url{https://code.google.com/p/coil/}
+\paragraph{Coil:}
+Coil defines a key-value hierarchy. Any object in can inherit another object by way of an absolute or relative path. The inherited values, or values of child objects, can be overridden. Values can be strings with substitutions, integers, or lists with substitutions. String substitution allows templating using values defined in the hierarchy. Coil also has a \texttt{@map} operator to generate similar objects.
 
-\noindent Coil defines a key-value hierarchy. Any object in can inherit another object by way of an absolute or relative path. The inherited values, or values of child objects, can be overridden. Values can be strings with substitutions, integers, or lists with substitutions. String substitution allows templating using values defined in the hierarchy. Coil also has a \texttt{@map} operator to generate similar objects.
+\noindent \url{https://code.google.com/p/coil/}
 
-\paragraph{Flabbergast:} \url{https://github.com/apmasell/flabbergast} \\
-
-\noindent Flabbergast constructs a key-value hierarchy similar to JSON. Each value is an expression that can reference the values of other keys using an unusual dynamic scoping method. Flabbergast allows prototype inheritance through ``templates'', which also function as lambdas with multiple return values. Flabbergast does not imply a particular output format; it allows the program to construct an arbitrary string which it writes to a file as output.
+\paragraph{Flabbergast:}
+Flabbergast constructs a key-value hierarchy similar to JSON. Each value is an expression that can reference the values of other keys using an unusual dynamic scoping method. Flabbergast allows prototype inheritance through ``templates'', which also function as lambdas with multiple return values. There are also map and reduce operations to manipulate objects. Flabbergast does not imply a particular output format; it allows the program to construct an arbitrary string which it writes to a file as output.
 
 \noindent\emph{The author of this paper is the developer of Flabbergast.}
 
-\paragraph{Jsonnet:} \url{http://google.github.io/jsonnet/doc/} \\
+\noindent \url{https://github.com/apmasell/flabbergast}
 
-\noindent Jsonnet looks very similar to JSON, but reintroduces some JavaScript-like features. Each value is an expression that can reference other values specifying a path of key names from the root of the tree to the desired value. Any object in the tree can be used as a prototype for another object.
+\paragraph{HOCON:}
+Human-Optimized Config Object Notation~(HOCON) is a superset of JSON that includes string subtitution, prototype inheritance, and concatentation. HOCON allows strings and arrays to be concatenated using previously defined variables. The prototype inheritance is semantically similar to concatentation: an existing object is used, but the operation behaves as a replacement rather than an appending. HOCON appears to have imperative semantics, but the language is analysing the references between definitions and redefinitions, so that certain definitions are considered self-referential and illegal. The configuration is meant to be consumed by an application directly. The original version targeted the Java Virutal Machine, including Java, Scala, and Clojure, and it has been ported to Python and Ruby.
 
-\paragraph{NixOS:} \url{http://nixos.org/} \\
+\noindent \url{https://github.com/typesafehub/config}
 
-\noindent NixOS constructs a key-value hierarchy. Each value is an expression that can reference the values of other keys referencing other values using a path of key names. The resolution starts in the current collection, or one of the capturing constructs, such as \texttt{lambda} or \texttt{let}, and checks through the nested constructs until it reaches the root. While NixOS does not have an inheritance mechanism, it does have a set of default propagation operator: the \texttt{or} operator is a null coalescence for a value, and the \texttt{//} operator is a null coalescence for all the values of a pair of collections.
+\paragraph{Jsonnet:}
+Jsonnet looks very similar to JSON, but reintroduces some JavaScript-like features. Each value is an expression that can reference other values specifying a path of key names from the root of the tree to the desired value. Any object in the tree can be used as a prototype for another object. The standard library provides map and reduce operations to manipulate lists.
 
-\paragraph{Pan:} \url{http://www.quattor.org/} \\
+\noindent \url{http://google.github.io/jsonnet/doc/}
 
-\noindent Pan defines classes for object where fields can have very specific types, including range types and strings matching expressions. Instances of types can be instantiated and mutated through a series of imperative operations. There is an generated output tuple-space containing the target configuration. Local variables created in the imperative language are in a separate name-space from the keys in the object hierarchy being constructed. The tuple space can be read from or written to using paths of key names; paths maybe relative or absolute.
+\paragraph{NixOS:}
+NixOS constructs a key-value hierarchy. Each value is an expression that can reference the values of other keys referencing other values using a path of key names. The resolution starts in the current collection, or one of the capturing constructs, such as \texttt{lambda} or \texttt{let}, and checks through the nested constructs until it reaches the root. While NixOS does not have an inheritance mechanism, it does have a set of default propagation operator: the \texttt{or} operator is a null coalescence for a value, and the \texttt{//} operator is a null coalescence for all the values of a pair of collections.
 
-\paragraph{Pystachio:} \url{https://github.com/wickman/pystachio} \\
+\noindent\url{http://nixos.org/}
 
-\noindent Pystachio is a configuration data model and string template system built on top of Python. Any imperative features come from Python itself, rather than the Pystachio data model. \texttt{Struct}s define classes for data object and the required types. Instantiated objects be associated with environments, that provide values for templates defined in \texttt{Struct}s. Once all the templates variables are resolved, the resulting value can be type checked and used.
+\paragraph{Pan:}
+Pan defines classes for object where fields can have very specific types, including range types and strings matching expressions. Instances of types can be instantiated and mutated through a series of imperative operations. There is an generated output tuple-space containing the target configuration. Local variables created in the imperative language are in a separate name-space from the keys in the object hierarchy being constructed. The tuple space can be read from or written to using paths of key names; paths maybe relative or absolute.
 
+\noindent \url{http://www.quattor.org/}
+
+\paragraph{Pystachio:}
+Pystachio is a configuration data model and string template system built on top of Python. Any imperative features come from Python itself, rather than the Pystachio data model. \texttt{Struct}s define classes for data object and the required types. Instantiated objects be associated with environments, that provide values for templates defined in \texttt{Struct}s. Once all the templates variables are resolved, the resulting value can be type checked and used.
+
+\noindent \url{https://github.com/wickman/pystachio}
 
 \subsection{Abstraction of the Common Bridge}
 The common bridge problem has been solved in many instances. Ultimately, solving the common bridge problem comes down to being appropriately agnostic of the data being handled.
