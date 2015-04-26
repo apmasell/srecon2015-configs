@@ -46,8 +46,8 @@
 
 \begin{frame}\frametitle{Why are configs complicated?}
 \begin{itemize}
-\item Complexity is semantic and independent of the configuration format.
-\item There is a conflict between terse~(easy to read) and explicit~(easy to write).
+\item Complexity is semantic and independent of the format.
+\item There is a conflict between terse~(easy to write) and explicit~(easy to read).
 \item Macro languages add additional behaviour.
 \item There are strange embedded programming languages.
 \end{itemize}
@@ -93,7 +93,7 @@
 \item Apache and NGINX's rewriting rules are Turing complete! Roland Illig has implemented a Towers of Hanoi solver.
 \item BIND has different default propagation schemes depending on the parameter.
 \item BIND also has a rewrite system, though not Turing complete.
-\item Make has contextually-determined lazy or egar evaluation.
+\item Make has contextually-determined lazy or eagar evaluation.
 \item Asterisk does \texttt{GoTo} via string bashing.
 \end{itemize}
 \end{frame}
@@ -127,10 +127,10 @@
 \end{itemize}
 \end{frame}
 
-\begin{frame}\frametitle{No-So-Weird Machines}
+\begin{frame}\frametitle{Not-So-Weird Machines}
 \begin{itemize}
 \item Replace weird machines with existing scripting languages~(\emph{e.g.}, Guile, Lua, FORTH, GameMonkey, TCL, JavaScript).
-\item here are many obscure programming languages that few people know; when you create a new programming language, you can be guaranteed that no one will know it. -- K.~Schaffrick
+\item There are many obscure programming languages that few people know; when you create a new programming language, you can be guaranteed that no one will know it. -- K.~Schaffrick
 \item If you really \emph{need} a machine, make it virutal, not weird.
 \end{itemize}
 \end{frame}
