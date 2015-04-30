@@ -22,6 +22,7 @@
 \title{Configuration Pinocchio}
 \subtitle{The Lies Plainly Seen and the Quest to be a Real Discipline}
 \author{Andre Masella}
+\date{May 15, 2015}
 
 \begin{document}
 \begin{frame}\maketitle \end{frame}
@@ -63,7 +64,7 @@
 
 \begin{frame}\frametitle{Terse and Explicit}
 \begin{itemize}
-\item Terseness is archieved two ways: macros and default propagation.
+\item Terseness is achieved two ways: macros and default propagation.
 \item If the macro language is separate from the binary, the expansion can be observed. Often, it is built-in.
 \item Default propagation works in many ways:
 \begin{itemize}
@@ -93,7 +94,7 @@
 \item Apache and NGINX's rewriting rules are Turing complete! Roland Illig has implemented a Towers of Hanoi solver.
 \item BIND has different default propagation schemes depending on the parameter.
 \item BIND also has a rewrite system, though not Turing complete.
-\item Make has contextually-determined lazy or eagar evaluation.
+\item Make has contextually-determined lazy or eager evaluation.
 \item Asterisk does \texttt{GoTo} via string bashing.
 \end{itemize}
 \end{frame}
@@ -101,7 +102,7 @@
 \begin{frame}\frametitle{Weird Machines}
 \begin{itemize}
 \item If Apache's URL rewriting can be Turing complete, then every incoming URL is a program executed by the \texttt{mod\_rewrite} virtual machine.
-\item URLs are a strange bytecode for a \emph{weird machine}.
+\item URLs are a strange byte-code for a \emph{weird machine}.
 \item Weird machines are targets for exploitation.
 \item Many configurations define weird machines for the queries in the binary.
 \item Since they are Turing complete, they can't be checked for correctness.
@@ -109,7 +110,7 @@
 \end{itemize}
 \end{frame}
 
-\begin{frame}\frametitle{Composablility}
+\begin{frame}\frametitle{Composability}
 \begin{itemize}
 \item Our configurations lack composability, which is what cloud configurations demand.
 \item There should be a configuration that configures a server for running on metal \emph{and} in Docker.
@@ -131,7 +132,7 @@
 \begin{itemize}
 \item Replace weird machines with existing scripting languages~(\emph{e.g.}, Guile, Lua, FORTH, GameMonkey, TCL, JavaScript).
 \item There are many obscure programming languages that few people know; when you create a new programming language, you can be guaranteed that no one will know it. -- K.~Schaffrick
-\item If you really \emph{need} a machine, make it virutal, not weird.
+\item If you really \emph{need} a machine, make it virtual, not weird.
 \end{itemize}
 \end{frame}
 
