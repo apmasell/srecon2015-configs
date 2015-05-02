@@ -3,6 +3,7 @@
 *.blg
 *.ent
 *.log
+*.mp*
 *.nav
 *.out
 *.pdf
