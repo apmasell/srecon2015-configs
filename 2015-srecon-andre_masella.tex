@@ -134,7 +134,7 @@ exten => _in-.,1,Hangup(16)
 This embedded language has become quite complicated, and some Asterisk developers have created a module that allows it to be replaced with the general-purpose embedded scripting language Lua.
 
 \section{Common Problems}
-All of the configurations surveyed share behavior that is undesirable to their users. As the maintainer of a system, one's desires are: ease of configuration and adjustment of that configuration, ease of debugging, robustness of the configured software.
+All of the configurations surveyed share behavior that is undesirable to their users. As the maintainer of a system, one's desires are: ease of writing and adjustment of that configuration, ease of debugging, robustness of the configured software.
 
 \subsection{Terse versus Explicit -- The Macro and Defaults Problem}
 As the person responsible for initial configuration of a program, there is a strong desire for the configuration to be as terse as possible. However, for the person debugging the configuration, it it is desirable for the configuration to be as explicit as possible. Ultimately, these two goals are in direct opposition.
@@ -153,23 +153,15 @@ This pattern repeats itself many times. There are solutions that have been adopt
 LDAP has also solved this problem by defining a uniform way to represent and query different kinds of data. The application has a well-defined interface to the LDAP server, but the user can provide a sophisticated request to the LDAP server that is proxied, but not understood, by the application.
 
 \subsection{Composition}
-In the traditional model where a service is set up on a machine once and left to run, composition seems like a pointless endeavor: what is there to compose? In the cluster model, composition is suddenly more important. However, composition has always been important. Composition can be difficult to see because, when it is present, it fades into the background. When composition is absent, other techniques obscure the need.
+In the traditional model where a service is set up on a machine once and left to run, composition seems like a pointless endeavor: what is there to compose? In the cluster model, composition is suddenly more important. There is a linked configuration between the server and the container and the servers in different containers need to contact each other in order for the tiers in an application stack is communicate. The configuration of the cluster system and the applications is now mutually dependent.
+
+However, composition has always been important. Composition can be difficult to see because, when it is present, it fades into the background. Escaping is one of the most obvious and pervasive symptoms of poor composition. A user should not have to know the number of layers data will pass through to escape input data properly.
 
 For good composition, LDAP is a worth-while example. LDAP has three key features that provide excellent composability: the interface with the program is well-defined, the interface with the user is well-defined, and the marshalling between the two is well-defined. The LDAP interface from the binary is straight forward: open a connection, send a query, get back a list of self-describing dictionaries. Similarly, the LDAP interface for the user is straight forward: provide a URI for a connection, provide a query, list the fields of interest to access from the results. The query passed is simply a string and, unlike SQL, it is a sufficiently well-behaved entity that the client can send its request to the server with a minimum of string bashing and rewriting.
 
-For bad composition, any build tool will provide examples. The typical C compiler and toolchain is a sufficiently obtuse build system that it needs Make to manage compilation of all but the simplest programs. Because of the division of header files and libraries, compile and link flags must be passed around separately. Although pkg-config has become the canonical source for flags, many libraries do not provide pkg-config definitions, so each program's build system must go through a platform-dependent set of steps to discover the correct flags to use a particular library. Determining the per-file build dependencies is also a non-trivial exercise and necessary to give Make the correct information to allow fast and accurate rebuilding of changed files. This lead to the development of tools like GNU AutoTools and CMake. In GNU AutoTools, the relay race is as follows: write a configuration script in two different languages (AutoMake and AutoConf's M4), which get translated to Make and a shell script, respectively; run the shell script so that it can detect the state of the build system and rewrite the Make file; then run the Makefile to invoke a shell to invoke the compiler with the correct flags. This is grossly simplified and ignores some of the other features of the programs involved. That being said, it is still exceedingly complicated and involves many layers of fragile escaping.
+For bad composition, any build tool will provide examples. The typical C compiler and tool-chain is a sufficiently obtuse build system that it needs Make to manage compilation of all but the simplest programs. Because of the division of header files and libraries, compile and link flags must be passed around separately. Although \texttt{pkg-config} has become the canonical source for flags, many libraries do not provide \texttt{pkg-config} definitions, so each program's build system must go through a platform-dependent set of steps to discover the correct flags to use a particular library. Determining the per-file build dependencies is also a non-trivial exercise and necessary to give Make the correct information to allow fast and accurate rebuilding of changed files. This lead to the development of tools like GNU AutoTools and CMake. In GNU AutoTools, the relay race is as follows: write a configuration script in two different languages (AutoMake and AutoConf's M4), which get translated to Make and a shell script, respectively; run the shell script so that it can detect the state of the build system and rewrite the Make file; then run the Makefile to invoke a shell to invoke the compiler with the correct flags. This is grossly simplified and ignores some of the other features of the programs involved. That being said, it is still exceedingly complicated and involves many layers of fragile escaping.
 
-%XXX Composition
-
-Demand for composition only increases as layers of automation increase. Composition works well when:
-
-\begin{itemize}
-\item the interfaces between layers are well-defined.
-\item proxying is simple and does not involve fragile operations~(this requires that the interface is well-defined so the intervening layer can know how to proxy).
-\item adding intervening layers does not change the proxying behaviour. It should be the case that if data needs to be proxied, the same proxying semantics should work irrespective of the number of layers. Escaping is an example of a failure here: a user should not have to know the number of layers data will pass through to escape input data properly.
-\end{itemize}
-
-Escaping is one of the most obvious and pervasive symptoms of poor composition. The examples are everywhere: OpenSSH's \texttt{scp} does not escape certain file names properly, the escaping rules for strings in shell are extremely complicated and context dependent (\emph{e.g.}, escaping for command line arguments is different from here-doc), and the great complexity of HTML escaping.
+Demand for composition only increases as layers of automation increase.
 
 \subsection{Weird Machines}
 A weird machine is program whose input handling mechanism allows the input to use the program as an exploitable interface for running arbitrary code in a Turing-complete language. Imagine if a properly crafted \texttt{fstab} could turn \texttt{mount} into a virtual machine. Weird machines occur either by design or through bugs in input handling, often due to ill-designed attempts to parse or validate input\cite{weird}. Configurations are even more confusing because they offer the opportunity to create nested weird machines.
@@ -235,7 +227,7 @@ Input-output is also a focus of traditional languages and not of interest in con
 A useful configuration language will inherit some of the behavior of functional and procedural languages, but, perhaps a more insightful focus, it can jettison large amount of unnecessary behavior from general-purpose programming languages.
 
 \subsubsection{Current Configuration Languages}
-Presently, there are a handful of configuration languages. These languages are in their infancy, so this survey only attempts to draw attention to their prominent features. A summary of features is shown in Table~\ref{tbl:features}.
+Presently, there are a handful of configuration languages that attempt to solve some of the above problems. They provide uniform default propagation models and reusable ways to write terse configurations that become more elaborate. These languages are in their infancy, so this survey only attempts to draw attention to their prominent features. A summary of features is shown in Table~\ref{tbl:features}.
 
 \begin{table*}
 \caption{\label{tbl:features}Comparison of configuration languages}
@@ -302,8 +294,33 @@ In the \texttt{fstab} example, there are functions in the kernel capable of crea
 
 While any serialization method is fine, one which is human readable is more convenient. The format needs to be standard enough that the remote function is easily extracted. URIs excel at this for many applications. Again, looking to CUPS, each URI's scheme indicates to which backend (\emph{i.e.}, function) CUPS should send the data. The remainder of the URI is entirely in the hands of the backend, and outside CUPS's boundary of competence. URIs also have well-defined format, parsing, and escaping semantics.
 
+\subsection{Composition}
+Providing good composition has already been partially address through configuration languages and the common bridge problem. Composition works well when:
+
+\begin{itemize}
+\item the interfaces between layers are well-defined.
+\item proxying is simple and does not involve fragile operations~(this requires that the interface is well-defined so the intervening layer can know how to proxy).
+\item adding intervening layers does not change the proxying behaviour. It should be the case that if data needs to be proxied, the same proxying semantics should work irrespective of the number of layers. Escaping is an example of a failure here: a user should not have to know the number of layers data will pass through to escape input data properly.
+\end{itemize}
+
+The common bridge problem occurs when the interfaces between layers are defined incorrectly and the proxying is fragile. Configuration languages need to be good proxies and allow users to define interfaces between layers.
+
+Escaping is one of the most obvious and pervasive symptoms of poor composition. The examples are everywhere: OpenSSH's \texttt{scp} does not escape certain file names properly, the escaping rules for strings in shell are extremely complicated and context dependent (\emph{e.g.}, escaping for command line arguments is different from here-doc), and the great complexity of HTML escaping.
+
+It would be ideal if all composing layers could handle proxying of strings with a length; such a model would allow a configuration language, which knows the length of a string, to pass it to a subsequent layer without the need to escape it. Specifying string lengths is a tedious prospect for humans, but trivial for software--much more than requiring the programmer to understand the nuances of escaping at every level. Modifying length-specified strings is non-trivial for human programmers, but so is modifying heavily escaped strings and modifying heavily escape strings is much harder to debug.
+
+To some degree, creating well-defined interfaces will always be the domain of programmers, but configuration languages can provide better support to specify and communicate those interfaces. In the long term, configuration languages will have to develop both in-language features and conventions and styles for defining interfaces between layers.
+
 \subsection{Embedded Languages}
-Embedded programming languages are a bottomless well of concerns for security, but, ultimately, some configuration needs to specify complex behavior. Language-theoretic security researchers recommend stripping out Turing-completeness where possible to avoid creating weird machines. I will elaborate on this idea and expand the solution for configurations.
+Embedded programming languages are a bottomless well of concerns for security. As a general guide, these questions need to be answered, ordered from most desirable to least desirable:
+
+\begin{enumerate}
+\item Can this be replaced with something entirely static? (\emph{e.g.}, a look-up table) Even if this table requires a program to generate it, it is better that it be done before the application runs.
+\item Can this be replaced by a language which is not Turing-complete? (\emph{e.g.}, a formula, or regular expression)
+\item Can this be replaced by an existing scripting language?
+\end{enumerate}
+
+\noindent Language-theoretic security researchers recommend stripping out Turing-completeness where possible to avoid creating weird machines. If it can be replace with something static, this is the best, and most trivial solution. I will elaborate on solutions in the other cases.
 
 The first step should be to identify whether Turning completeness is required at all. It is recommended to try to reduce the problem to a regular language or deterministic context-free language. If this is possible, then the problem is a great deal simpler. If it is impossible, then the programming language should be considered carefully as if designing a general-purpose programming language. There are many obscure programming languages that few people know; when you create a new programming language, you can be guaranteed that no one will know it.\cite{kws} If an embedded programming language is needed, why not use Guile, Lua, FORTH, GameMonkey script, AngelScript, TCL, Squirrel, or JavaScript? Any of these or similar languages has an easily-embedded run-time that allows plugging-in foreign functions to interface with the host program. All the issues of language design, validation, verification, type checking, the object model, documentation, optimization, and future development are externalized to a community of people focussed on doing that well.
 
