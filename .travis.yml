@@ -1,0 +1,24 @@
+sudo: required
+dist: trusty
+before_script:
+- sudo apt-get update -qq
+- sudo apt-get install -qq -y --force-yes inkscape transfig texlive-fonts-recommended
+  texlive-fonts-extra texlive-latex-base texlive-latex-extra
+  texlive-latex-recommended texlive-xetex
+script: mkdir -p www && fig2dev -L svg configdifference.fig > configdifference.svg &&
+  inkscape -A configdifference.pdf configdifference.svg && xelatex
+  2015-srecon-andre_masella && xelatex 2015-srecon-andre_masella && xelatex
+  presentation && xelatex presentation && cp 2015-srecon-andre_masella.pdf
+  www && cp presentation.pdf www/2015-srecon-andre_masella-presentation.pdf
+notifications:
+  on_success: never
+  on_failure: change
+deploy:
+  provider: s3
+  access_key_id: AKIAJY7JELRUQJ6ESEWA
+  secret_access_key:
+    secure: e4qOLc0OPil3J3fjuXUWaKYdezIjQQiGq6t0twcXs3wQCn3p/kSenbni9aMekzyLJ1E7HlRwdyi2QGktGeg15EMVylxR830EZ8YdGAzGCXLaYyiR9An0vW4Uf0LY4H2xFJ7BNzjUNMbwT1eSQuRcYbZyZqS786sYPAVW3oQPlYktzXMwT6RMPM3lvUBeJgoEIk6rHYHsGgC5jkohSl9GkJoY/al4OafEhqpOD0lUGGhbWsNPkOcb50Lc+KMRX4fPFmVqQ5Nt9uxikMroOH+i2KIr4jTf9dx+uFYDkz5g7iAB7hbtcEt0EDLgQDjfYAB6t5a6u5YHJAsbpg+xLHYhe5OVfaFYV4OENtje6wzrMZC8HUcy73SVohrkl9Ek7JGn01ZwNu/L89lNRddq3mkgujH3yDpACsjdW6iRSh00Noob1eAQKn7chLDrf+TXZ6Yh5HTCYON5Zu3mNU/9mBBWAHUD9fNMNol9k7wiuLPea1Zdisi7RNYumj/LKs8vkGt2ClxWw6YJbAyttVnTVihRO6vW5HUyV5bX18q3ZLOcuCFHgQXXKB3c102MUL8JkCEMwTg74WVAy3vBgKxZDkHdBsrIQiEyBB6ExdycS/NM+UVmmbBQHNtG+KNtxeDFLYsA4Ofz42fi1lpMQIhnlOYhP+zilcEVNoVDYpkHr8DUZts=
+  bucket: artefacts.masella.name
+  skip_cleanup: true
+  local_dir: www
+  acl: public_read
