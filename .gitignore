@@ -8,5 +8,6 @@
 *.out
 *.pdf
 *.snm
+*.svg
 *.swp
 *.toc
