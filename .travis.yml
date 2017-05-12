@@ -5,11 +5,18 @@ before_script:
 - sudo apt-get install -qq -y --force-yes inkscape transfig texlive-fonts-recommended
   texlive-fonts-extra texlive-latex-base texlive-latex-extra
   texlive-latex-recommended texlive-xetex
-script: mkdir -p www && fig2dev -L svg configdifference.fig > configdifference.svg &&
-  inkscape -A configdifference.pdf configdifference.svg && xelatex
-  2015-srecon-andre_masella && xelatex 2015-srecon-andre_masella && xelatex
-  presentation && xelatex presentation && cp 2015-srecon-andre_masella.pdf
-  www && cp presentation.pdf www/2015-srecon-andre_masella-presentation.pdf
+script: >
+  mkdir -p www &&
+  fig2dev -L svg configdifference.fig > configdifference.svg &&
+  inkscape -A configdifference.pdf configdifference.svg &&
+  xelatex 2015-srecon-andre_masella &&
+  bibtex 2015-srecon-andre_masella &&
+  xelatex 2015-srecon-andre_masella &&
+  xelatex 2015-srecon-andre_masella &&
+  xelatex presentation &&
+  xelatex presentation &&
+  cp 2015-srecon-andre_masella.pdf www &&
+  cp presentation.pdf www/2015-srecon-andre_masella-presentation.pdf
 notifications:
   on_success: never
   on_failure: change
